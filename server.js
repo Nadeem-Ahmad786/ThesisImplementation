@@ -30,7 +30,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
 app.use("/api/auth", authRoutes);
-app.use("/api/video", videoRoutes)
+app.use("/api/videos", videoRoutes)
 connectDB();
 
 //for testing the app
