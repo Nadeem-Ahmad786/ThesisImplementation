@@ -1,7 +1,6 @@
 const Video = require("../models/Video");
 const User = require("../models/User");
 
-
 exports.create = async (req, res) => {
   try{
     const { _id } = req.user;
@@ -20,7 +19,7 @@ exports.create = async (req, res) => {
     // Update the user's videos array with the new video ID
     await User.findByIdAndUpdate(_id, { $push: { video: video._id } });
 
-    res.json({ message: 'Video uploaded successfully' });
+    res.status(200).json({ message: 'Video uploaded successfully' });
   } catch (error) {
     console.error('Error uploading video', error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -32,9 +31,9 @@ exports.readSingle = async (req, res) => {
   const { id } = req.params;
   console.log(id);
   try {
-    let Video = await Video.findOne({ _id: id });
-    console.log(Video);
-    res.status(200).json(Video);
+    const video = await Video.findOne({ _id: id });
+    console.log(video);
+    res.status(200).json(video);
   } catch (error) {
     console.log(error);
   }
@@ -42,16 +41,15 @@ exports.readSingle = async (req, res) => {
 
 exports.readCurrentUserVideo = async (req, res) => {
   try {
-    const {_id} = req.user;
+    const { _id } = req.user;
 
-    const user = await User.findById(_id);
+    const user = await User.findById(_id).populate('video').lean();
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    await user.populate('videos').execPopulate();
-
-    const userVideos = user.videos.map((video) => ({
+    const userVideos = user.video.map((video) => ({
+      _id: video._id,
       age: video.age,
       tag: video.tag,
       url: video.url,
@@ -163,6 +161,7 @@ exports.blockTag = async (req, res) => {
 
 exports.recentlyWatchedTags = async (req, res) => {
   try {
+    console.log("Hey")
     const { _id } = req.user;
 
     // Find the user
@@ -182,6 +181,65 @@ exports.recentlyWatchedTags = async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+exports.topWatch = async (req, res) => {
+  try {
+    const { _id } = req.user;
+
+    // Find the user
+    const user = await User.findById(_id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Get the top 5 most watched tags sorted by count in descending order
+    const topTags = user.topWatch
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    res.json({ topTags });
+  } catch (error) {
+    console.error('Error fetching top watched tags:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+exports.unblockTag = async (req, res) => {
+  try {
+    const { _id } = req.user;
+    const { tag } = req.body;
+
+    const user = await User.findById(_id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.blockedTags = user.blockedTags.filter(blockedTag => blockedTag !== tag);
+    await user.save();
+
+    res.json({ message: 'Tag unblocked successfully', blockedTags: user.blockedTags });
+  } catch (error) {
+    console.error('Error unblocking tag:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+
+exports.viewBlockedTags = async (req, res) => {
+  try {
+    const { _id } = req.user;
+    const user = await User.findById(_id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ blockedTags: user.blockedTags });
+  } catch (error) {
+    console.error('Error fetching blocked tags:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 
 exports.readAll = async (req, res) => {
   try {
